@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // SQLite pra rodar local sem instalar nada. Em produção, troque provider
+  // para "postgresql" e DATABASE_URL para a connection string real —
+  // o resto do schema não muda.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite não suporta enum nativo no Prisma — os campos abaixo usam String
+// com os valores válidos documentados aqui e validados via zod na camada de rotas.
+// Papel: "ADMIN" | "PROFISSIONAL"
+// StatusAgendamento: "AGENDADO" | "CONFIRMADO" | "REALIZADO" | "CANCELADO" | "NAO_COMPARECEU"
+// StatusAssinatura: "ATIVA" | "CANCELADA" | "INADIMPLENTE"
+// MetodoPagamento: "CARTAO" | "PIX"
+
+// O tenant. Toda tabela abaixo carrega empresaId — é o único jeito
+// de garantir isolamento entre os negócios que usam o mesmo motor.
+model Empresa {
+  id             String   @id @default(cuid())
+  nome           String
+  slug           String   @unique
+  corPrimaria    String   @default("#C4870F")
+  logoUrl        String?
+  whatsappNumero String?
+  criadoEm       DateTime @default(now())
+
+  usuarios     Usuario[]
+  servicos     Servico[]
+  clientes     Cliente[]
+  agendamentos Agendamento[]
+  planos       PlanoAssinatura[]
+  assinaturas  AssinaturaCliente[]
+}
+
+// Dono e profissionais (o antigo sistema separava "usuário" de "barbeiro";
+// aqui é a mesma entidade, papel decide o que ela pode fazer).
+model Usuario {
+  id             String   @id @default(cuid())
+  empresaId      String
+  empresa        Empresa  @relation(fields: [empresaId], references: [id])
+  nome           String
+  email          String   @unique
+  senhaHash      String
+  papel          String   @default("PROFISSIONAL")
+  especialidades String?
+  horarioInicio  String   @default("08:00")
+  horarioFim     String   @default("18:00")
+  diasTrabalho   String   @default("1,2,3,4,5,6")
+  ativo          Boolean  @default(true)
+  criadoEm       DateTime @default(now())
+
+  agendamentos Agendamento[]
+}
+
+model Servico {
+  id             String   @id @default(cuid())
+  empresaId      String
+  empresa        Empresa  @relation(fields: [empresaId], references: [id])
+  nome           String
+  categoria      String   @default("Geral")
+  duracaoMinutos Int
+  preco          Float
+  ativo          Boolean  @default(true)
+  criadoEm       DateTime @default(now())
+
+  agendamentos Agendamento[]
+  planoItens   PlanoServico[]
+}
+
+// Cliente final. Escopado por empresa: o mesmo telefone pode existir
+// em dois negócios diferentes sem colidir.
+model Cliente {
+  id        String   @id @default(cuid())
+  empresaId String
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  nome      String
+  telefone  String
+  email     String?
+  cpfCnpj   String? // exigido pelo gateway de pagamento só na hora de assinar um plano recorrente
+  criadoEm  DateTime @default(now())
+
+  agendamentos Agendamento[]
+  assinaturas  AssinaturaCliente[]
+
+  @@unique([empresaId, telefone])
+}
+
+model Agendamento {
+  id             String            @id @default(cuid())
+  empresaId      String
+  empresa        Empresa           @relation(fields: [empresaId], references: [id])
+  clienteId      String
+  cliente        Cliente           @relation(fields: [clienteId], references: [id])
+  profissionalId String
+  profissional   Usuario           @relation(fields: [profissionalId], references: [id])
+  servicoId      String
+  servico        Servico           @relation(fields: [servicoId], references: [id])
+  data           String // YYYY-MM-DD
+  horaInicio     String // HH:mm
+  horaFim        String // HH:mm, calculado a partir da duração do serviço
+  status         String            @default("AGENDADO")
+  valorCobrado   Float?
+  origemCredito  Boolean           @default(false) // true = consumiu crédito de assinatura, não cobrou avulso
+  statusPagamento String           @default("NAO_SE_APLICA") // NAO_SE_APLICA | PENDENTE | PAGO
+  asaasPaymentId  String?
+  pixCopiaCola    String?
+  observacoes    String?
+  criadoEm       DateTime          @default(now())
+
+  @@index([empresaId, profissionalId, data])
+}
+
+// Plano de assinatura que o NEGÓCIO oferece ao cliente final
+// (ex: "2 cortes por mês por R$70"). Camada de recorrência separada
+// da assinatura SaaS que a empresa paga pra usar o sistema.
+model PlanoAssinatura {
+  id          String   @id @default(cuid())
+  empresaId   String
+  empresa     Empresa  @relation(fields: [empresaId], references: [id])
+  nome        String
+  precoMensal Float
+  cicloDias   Int      @default(30)
+  ativo       Boolean  @default(true)
+  criadoEm    DateTime @default(now())
+
+  itens       PlanoServico[]
+  assinaturas AssinaturaCliente[]
+}
+
+model PlanoServico {
+  id                 String          @id @default(cuid())
+  planoId            String
+  plano              PlanoAssinatura @relation(fields: [planoId], references: [id])
+  servicoId          String
+  servico            Servico         @relation(fields: [servicoId], references: [id])
+  quantidadePorCiclo Int
+
+  @@unique([planoId, servicoId])
+}
+
+model AssinaturaCliente {
+  id                String           @id @default(cuid())
+  empresaId         String
+  empresa           Empresa          @relation(fields: [empresaId], references: [id])
+  clienteId         String
+  cliente           Cliente          @relation(fields: [clienteId], references: [id])
+  planoId           String
+  plano             PlanoAssinatura  @relation(fields: [planoId], references: [id])
+  metodoPagamento   String
+  status            String           @default("ATIVA")
+  inicioEm          DateTime         @default(now())
+  proximaCobrancaEm DateTime
+  asaasCustomerId     String?
+  asaasSubscriptionId String?
+  criadoEm          DateTime         @default(now())
+
+  creditos CreditoAssinatura[]
+}
+
+model CreditoAssinatura {
+  id                  String            @id @default(cuid())
+  assinaturaClienteId String
+  assinatura          AssinaturaCliente @relation(fields: [assinaturaClienteId], references: [id])
+  servicoId           String
+  cicloReferencia     String // ex: "ciclo-0", "ciclo-1" — janela de cicloDias desde o início da assinatura
+  quantidadeTotal     Int
+  quantidadeUsada     Int               @default(0)
+
+  @@unique([assinaturaClienteId, servicoId, cicloReferencia])
+}

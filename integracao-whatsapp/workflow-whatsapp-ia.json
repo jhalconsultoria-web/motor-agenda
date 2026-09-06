@@ -1,0 +1,182 @@
+{
+  "name": "Motor de Agenda - IA no WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-inbound",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-evolution",
+      "name": "Webhook Evolution",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "motor-agenda-whatsapp-inbound"
+    },
+    {
+      "parameters": {
+        "jsCode": "// EDITE AQUI as duas constantes antes de usar:\nconst BASE_URL = \"http://localhost:3333\"; // URL pública do backend do motor de agenda\nconst EVOLUTION_URL = \"http://localhost:8080\"; // URL da sua instância Evolution API\n\nconst body = $input.first().json.body ?? $input.first().json;\nconst dados = body.data ?? body;\nconst key = dados.key ?? {};\nconst mensagem = dados.message ?? {};\n\n// Convenção: o nome da instância Evolution é o slug da empresa no motor de agenda.\nconst slug = body.instance;\nconst telefoneRaw = key.remoteJid ?? \"\";\nconst telefone = telefoneRaw.replace(\"@s.whatsapp.net\", \"\").replace(/\\D/g, \"\");\nconst texto = mensagem.conversation ?? mensagem.extendedTextMessage?.text ?? \"\";\nconst fromMe = Boolean(key.fromMe);\n\nreturn [{ json: { slug, telefone, texto, fromMe, baseUrl: BASE_URL, evolutionUrl: EVOLUTION_URL } }];"
+      },
+      "id": "extrair-mensagem",
+      "name": "Extrair dados da mensagem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            { "leftValue": "={{ $json.fromMe }}", "rightValue": false, "operator": { "type": "boolean", "operation": "equals" } },
+            { "leftValue": "={{ $json.texto }}", "rightValue": "", "operator": { "type": "string", "operation": "notEquals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filtro-mensagem",
+      "name": "Ignorar mensagens vazias ou da própria empresa",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.texto }}",
+        "options": {
+          "systemMessage": "=Você é a assistente de agendamento via WhatsApp do negócio de slug \"{{ $json.slug }}\", que usa o Motor de Agenda.\n\nSeu único trabalho é ajudar o cliente a marcar um horário. Regras:\n- Use as ferramentas disponíveis para consultar serviços, profissionais e horários livres — nunca invente preço, duração ou horário.\n- Só chame a ferramenta de criar agendamento depois de confirmar com o cliente: qual serviço, qual profissional (ou pergunte se não tiver preferência e sugira o primeiro disponível), qual data e qual horário.\n- O telefone do cliente já é conhecido automaticamente, não precisa perguntar.\n- Se o cliente perguntar algo fora de agendamento, responda educadamente que você só cuida de marcar horário.\n- Seja breve, direto e informal, como uma pessoa respondendo no WhatsApp — sem formalidade excessiva.\n- Depois de agendar, confirme data, horário e se o valor será cobrado avulso (Pix/cartão no local) ou coberto por assinatura, conforme o retorno da ferramenta."
+        }
+      },
+      "id": "agente-agendamento",
+      "name": "Agente de agendamento",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "model": { "value": "claude-sonnet-5" },
+        "options": {}
+      },
+      "id": "modelo-claude",
+      "name": "Claude",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [820, 520],
+      "credentials": { "anthropicApi": { "id": "", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Extrair dados da mensagem').item.json.slug }}-{{ $('Extrair dados da mensagem').item.json.telefone }}",
+        "contextWindowLength": 12
+      },
+      "id": "memoria-conversa",
+      "name": "Memória da conversa",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [980, 520]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lista os serviços ativos e seus preços/duração dessa empresa.",
+        "method": "GET",
+        "url": "={{ $('Extrair dados da mensagem').item.json.baseUrl }}/api/public/{{ $('Extrair dados da mensagem').item.json.slug }}/servicos",
+        "options": {}
+      },
+      "id": "tool-listar-servicos",
+      "name": "listar_servicos",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1140, 160]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lista os profissionais dessa empresa.",
+        "method": "GET",
+        "url": "={{ $('Extrair dados da mensagem').item.json.baseUrl }}/api/public/{{ $('Extrair dados da mensagem').item.json.slug }}/profissionais",
+        "options": {}
+      },
+      "id": "tool-listar-profissionais",
+      "name": "listar_profissionais",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1140, 300]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Retorna os horários livres de um profissional numa data, pra um serviço específico. Parâmetros: profissionalId (id retornado por listar_profissionais), servicoId (id retornado por listar_servicos), data (formato YYYY-MM-DD).",
+        "method": "GET",
+        "url": "={{ $('Extrair dados da mensagem').item.json.baseUrl }}/api/public/{{ $('Extrair dados da mensagem').item.json.slug }}/horarios-disponiveis",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "profissionalId", "value": "={{ $fromAI('profissionalId', 'ID do profissional escolhido') }}" },
+            { "name": "servicoId", "value": "={{ $fromAI('servicoId', 'ID do serviço escolhido') }}" },
+            { "name": "data", "value": "={{ $fromAI('data', 'Data desejada no formato YYYY-MM-DD') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-ver-horarios",
+      "name": "ver_horarios_livres",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1140, 440]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Cria o agendamento depois que o cliente confirmou serviço, profissional, data e horário. O nome do cliente deve ser pedido na conversa se ainda não souber.",
+        "method": "POST",
+        "url": "={{ $('Extrair dados da mensagem').item.json.baseUrl }}/api/public/{{ $('Extrair dados da mensagem').item.json.slug }}/agendamentos",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"clienteNome\": $fromAI('clienteNome', 'Nome do cliente'), \"clienteTelefone\": $('Extrair dados da mensagem').item.json.telefone, \"profissionalId\": $fromAI('profissionalId', 'ID do profissional'), \"servicoId\": $fromAI('servicoId', 'ID do serviço'), \"data\": $fromAI('data', 'YYYY-MM-DD'), \"horaInicio\": $fromAI('horaInicio', 'HH:mm') } }}",
+        "options": {}
+      },
+      "id": "tool-criar-agendamento",
+      "name": "criar_agendamento",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [1140, 580]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Extrair dados da mensagem').item.json.evolutionUrl }}/message/sendText/{{ $('Extrair dados da mensagem').item.json.slug }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "apikey", "value": "={{ $credentials.evolutionApi.apiKey }}" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $('Extrair dados da mensagem').item.json.telefone, \"text\": $json.output } }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "responder-whatsapp",
+      "name": "Responder no WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1260, 300],
+      "credentials": { "httpHeaderAuth": { "id": "", "name": "Evolution API" } }
+    }
+  ],
+  "connections": {
+    "Webhook Evolution": { "main": [[{ "node": "Extrair dados da mensagem", "type": "main", "index": 0 }]] },
+    "Extrair dados da mensagem": { "main": [[{ "node": "Ignorar mensagens vazias ou da própria empresa", "type": "main", "index": 0 }]] },
+    "Ignorar mensagens vazias ou da própria empresa": { "main": [[{ "node": "Agente de agendamento", "type": "main", "index": 0 }]] },
+    "Agente de agendamento": { "main": [[{ "node": "Responder no WhatsApp", "type": "main", "index": 0 }]] },
+    "Claude": { "ai_languageModel": [[{ "node": "Agente de agendamento", "type": "ai_languageModel", "index": 0 }]] },
+    "Memória da conversa": { "ai_memory": [[{ "node": "Agente de agendamento", "type": "ai_memory", "index": 0 }]] },
+    "listar_servicos": { "ai_tool": [[{ "node": "Agente de agendamento", "type": "ai_tool", "index": 0 }]] },
+    "listar_profissionais": { "ai_tool": [[{ "node": "Agente de agendamento", "type": "ai_tool", "index": 0 }]] },
+    "ver_horarios_livres": { "ai_tool": [[{ "node": "Agente de agendamento", "type": "ai_tool", "index": 0 }]] },
+    "criar_agendamento": { "ai_tool": [[{ "node": "Agente de agendamento", "type": "ai_tool", "index": 0 }]] }
+  }
+}

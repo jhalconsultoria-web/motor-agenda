@@ -7,11 +7,14 @@ o setup de produção definitivo — pra isso, ver a seção final.
 ## Antes de começar
 
 Este projeto roda em SQLite (arquivo local). Nos serviços gratuitos abaixo,
-o disco não é permanente — a cada reinício do servidor, os dados voltam pro
-que está no seed. Isso é **de propósito** pra uma demo: toda vez que o
-serviço reiniciar, a demonstração volta limpa e previsível, com os mesmos
-dados de exemplo. Quando tiver cliente pagante de verdade, aí sim trocamos
-por um banco Postgres permanente (documentado no fim deste arquivo).
+o disco **não é permanente entre deploys** — se você redeploy o backend do
+zero (ou trocar de host), o arquivo do banco se perde. Dentro do mesmo
+deploy, porém, os dados ficam: o seed só popula os negócios de exemplo na
+primeiríssima vez que o banco está vazio, e nunca apaga nada depois disso —
+então cadastros reais feitos pela tela de "Criar conta" sobrevivem a
+reinícios normais do servidor. Quando tiver cliente pagante de verdade,
+mesmo assim vale trocar por um banco Postgres permanente (documentado no
+fim deste arquivo), justamente pra não depender do disco do host.
 
 ## Passo 1 — Colocar o código no GitHub
 

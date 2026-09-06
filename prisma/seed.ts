@@ -4,6 +4,16 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
+  // Idempotente de propósito: se já existe qualquer empresa (demo ou cadastrada
+  // de verdade por um cliente), não mexe em nada. Isso permite rodar `npm start`
+  // toda vez que o servidor sobe sem apagar conta real de ninguém — só popula
+  // os dados de exemplo na primeiríssima vez, com o banco vazio.
+  const jaTemDados = await prisma.empresa.findFirst();
+  if (jaTemDados) {
+    console.log("Banco já tem dados — seed pulado (nada foi apagado).");
+    return;
+  }
+
   await prisma.creditoAssinatura.deleteMany();
   await prisma.assinaturaCliente.deleteMany();
   await prisma.planoServico.deleteMany();

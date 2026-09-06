@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, salvarSessao } from "../api";
 import type { SessaoAtiva } from "../api";
 
-export function Login({ onEntrar }: { onEntrar: (sessao: SessaoAtiva) => void }) {
+export function Login({ onEntrar, onCriarConta }: { onEntrar: (sessao: SessaoAtiva) => void; onCriarConta: () => void }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -59,7 +59,11 @@ export function Login({ onEntrar }: { onEntrar: (sessao: SessaoAtiva) => void })
           {carregando ? "Entrando..." : "Entrar"}
         </button>
 
-        <p className="text-xs text-stone-400 mt-6 text-center">
+        <button type="button" onClick={onCriarConta} className="w-full text-center text-sm text-stone-600 hover:text-stone-900 mt-5 font-medium">
+          Criar conta grátis
+        </button>
+
+        <p className="text-xs text-stone-400 mt-4 text-center">
           Demo: joao@barbeariadojoao.com.br / demo123
         </p>
       </form>

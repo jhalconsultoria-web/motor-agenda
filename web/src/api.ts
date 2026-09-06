@@ -3,7 +3,7 @@ const BASE = `${import.meta.env.VITE_API_URL ?? "http://localhost:3333"}/api`;
 export interface SessaoAtiva {
   token: string;
   usuario: { id: string; nome: string; papel: "ADMIN" | "PROFISSIONAL" };
-  empresa: { id: string; nome: string; slug: string; corPrimaria: string };
+  empresa: { id: string; nome: string; slug: string; corPrimaria: string; logoUrl?: string | null };
 }
 
 function getToken(): string | null {
@@ -30,6 +30,20 @@ async function request(path: string, options: RequestInit = {}) {
 export const api = {
   login: (email: string, senha: string): Promise<SessaoAtiva> =>
     request("/auth/login", { method: "POST", body: JSON.stringify({ email, senha }) }),
+
+  registrar: (dados: {
+    nomeEmpresa: string;
+    corPrimaria: string;
+    logoUrl?: string;
+    nomeAdmin: string;
+    email: string;
+    senha: string;
+  }): Promise<SessaoAtiva> => request("/auth/registrar", { method: "POST", body: JSON.stringify(dados) }),
+
+  empresa: {
+    atualizar: (dados: { nome?: string; corPrimaria?: string; logoUrl?: string | null }) =>
+      request("/empresa", { method: "PATCH", body: JSON.stringify(dados) }),
+  },
 
   servicos: {
     listar: () => request("/servicos"),

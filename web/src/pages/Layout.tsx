@@ -1,12 +1,13 @@
 import type { SessaoAtiva } from "../api";
 
-type Pagina = "agenda" | "servicos" | "profissionais" | "clientes";
+type Pagina = "agenda" | "servicos" | "profissionais" | "clientes" | "configuracoes";
 
 const ITENS: { id: Pagina; label: string }[] = [
   { id: "agenda", label: "Agenda" },
   { id: "servicos", label: "Serviços" },
   { id: "profissionais", label: "Profissionais" },
   { id: "clientes", label: "Clientes" },
+  { id: "configuracoes", label: "Configurações" },
 ];
 
 export function Layout({
@@ -29,7 +30,11 @@ export function Layout({
       <aside className="w-60 bg-white border-r border-stone-200 flex flex-col">
         <div className="px-5 py-5 border-b border-stone-100">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: cor }} />
+            {sessao.empresa.logoUrl ? (
+              <img src={sessao.empresa.logoUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
+            ) : (
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: cor }} />
+            )}
             <span className="font-semibold text-stone-900 text-sm truncate">{sessao.empresa.nome}</span>
           </div>
           <span className="text-xs text-stone-400">{sessao.usuario.nome}</span>

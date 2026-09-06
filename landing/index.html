@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgendaZap — agenda com IA no WhatsApp</title>
+<meta name="description" content="Agenda com IA no WhatsApp para barbearias, salões e petshops de bairro. Cliente marca sozinho, você só aparece pra trabalhar.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg: #F1F4EE;
+    --surface: #FFFFFF;
+    --surface-2: #E6EAE1;
+    --border: #D5DBCF;
+    --text: #14201A;
+    --text-muted: #55665A;
+    --accent: #1F8F63;
+    --accent-soft: #E1F0E7;
+    --cta: #C97F0E;
+    --cta-text: #1B1206;
+    --chat-them: #FFFFFF;
+    --chat-us: #DCF3E7;
+    --shadow: 0 1px 2px rgba(20,32,26,0.05), 0 10px 30px rgba(20,32,26,0.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #0F1410;
+      --surface: #171D18;
+      --surface-2: #1E251F;
+      --border: #2B342D;
+      --text: #EDF1EA;
+      --text-muted: #94A08D;
+      --accent: #3BC08A;
+      --accent-soft: #17301F;
+      --cta: #F0A93E;
+      --cta-text: #201302;
+      --chat-them: #222A23;
+      --chat-us: #1C3A2A;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 14px 34px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #0F1410;
+    --surface: #171D18;
+    --surface-2: #1E251F;
+    --border: #2B342D;
+    --text: #EDF1EA;
+    --text-muted: #94A08D;
+    --accent: #3BC08A;
+    --accent-soft: #17301F;
+    --cta: #F0A93E;
+    --cta-text: #201302;
+    --chat-them: #222A23;
+    --chat-us: #1C3A2A;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 14px 34px rgba(0,0,0,0.35);
+  }
+
+  html{ scroll-behavior:smooth; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Work Sans', system-ui, sans-serif;
+    line-height:1.6;
+  }
+  img{ max-width:100%; }
+  h1,h2,h3,.wordmark{
+    font-family:'Bricolage Grotesque', system-ui, sans-serif;
+    text-wrap:balance;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .mono{ font-family:'JetBrains Mono', monospace; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 24px; }
+
+  nav.top{
+    position:sticky; top:0; z-index:20;
+    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+  }
+  nav.top .row{ display:flex; align-items:center; justify-content:space-between; padding:16px 24px; }
+  .wordmark{ font-size:20px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .wordmark .dot{ width:9px; height:9px; border-radius:50%; background:var(--accent); display:inline-block; }
+  .navlinks{ display:flex; gap:28px; font-size:14px; color:var(--text-muted); }
+  .navlinks a{ color:inherit; text-decoration:none; }
+  .navlinks a:hover{ color:var(--text); }
+  @media (max-width:640px){ .navlinks{ display:none; } }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:12px 22px; border-radius:10px;
+    font-size:14.5px; font-weight:600; text-decoration:none;
+    border:1px solid transparent; cursor:pointer;
+    transition:transform .15s ease;
+  }
+  .btn:hover{ transform:translateY(-1px); }
+  .btn-cta{ background:var(--cta); color:var(--cta-text); }
+  .btn-ghost{ background:transparent; color:var(--text); border-color:var(--border); }
+  .btn-sm{ padding:8px 16px; font-size:13px; }
+
+  section{ padding:88px 0; }
+  @media (max-width:768px){ section{ padding:56px 0; } }
+
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12.5px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--accent); margin-bottom:14px; display:block;
+  }
+
+  .hero{ padding-top:64px; }
+  .hero-grid{ display:grid; grid-template-columns:1.1fr 1fr; gap:56px; align-items:center; }
+  @media (max-width:900px){ .hero-grid{ grid-template-columns:1fr; } }
+  .hero h1{ font-size:clamp(32px,4.6vw,50px); font-weight:700; line-height:1.08; margin-bottom:20px; }
+  .hero p.lead{ font-size:17.5px; color:var(--text-muted); max-width:52ch; margin-bottom:30px; }
+  .hero .ctas{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+  .hero .microcopy{ font-size:12.5px; color:var(--text-muted); }
+
+  .phone{
+    background:var(--surface); border:1px solid var(--border); border-radius:28px;
+    box-shadow:var(--shadow); padding:14px; max-width:340px; margin:0 auto;
+  }
+  .phone .screen{
+    background:var(--surface-2); border-radius:18px; padding:16px 12px; min-height:420px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .phone .chathead{
+    display:flex; align-items:center; gap:10px; padding:2px 4px 10px;
+    border-bottom:1px solid var(--border); margin-bottom:4px;
+  }
+  .phone .avatar{
+    width:32px; height:32px; border-radius:50%; background:var(--accent);
+    color:var(--bg); display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13px; flex-shrink:0;
+  }
+  .phone .chathead strong{ font-size:13.5px; display:block; }
+  .phone .chathead span{ font-size:11px; color:var(--text-muted); }
+  .bubble{
+    max-width:80%; padding:9px 13px; border-radius:14px; font-size:13.5px;
+    opacity:0; animation:pop .4s ease forwards;
+  }
+  .bubble.them{ background:var(--chat-them); border:1px solid var(--border); align-self:flex-start; border-bottom-left-radius:4px; }
+  .bubble.us{ background:var(--chat-us); align-self:flex-end; border-bottom-right-radius:4px; }
+  .bubble:nth-child(1){ animation-delay:.1s; }
+  .bubble:nth-child(2){ animation-delay:.6s; }
+  .bubble:nth-child(3){ animation-delay:1.1s; }
+  .bubble:nth-child(4){ animation-delay:1.6s; }
+  @keyframes pop{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+  @media (prefers-reduced-motion: reduce){ .bubble{ opacity:1; animation:none; } }
+  .phone .caption{ text-align:center; font-size:12px; color:var(--text-muted); margin-top:14px; }
+
+  .cards3{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  @media (max-width:768px){ .cards3{ grid-template-columns:1fr; } }
+  .pain{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:22px; box-shadow:var(--shadow);
+  }
+  .pain .num{ font-family:'JetBrains Mono'; color:var(--accent); font-size:13px; margin-bottom:10px; display:block; }
+  .pain p{ margin:0; font-size:15px; }
+
+  .steps{ display:flex; flex-direction:column; }
+  .step{
+    display:grid; grid-template-columns:56px 1fr; gap:20px;
+    padding:22px 0; border-top:1px solid var(--border);
+  }
+  .step:first-child{ border-top:none; }
+  .step .n{ font-family:'JetBrains Mono'; font-size:20px; color:var(--accent); font-weight:500; }
+  .step h3{ font-size:17px; font-weight:600; margin-bottom:4px; }
+  .step p{ margin:0; color:var(--text-muted); font-size:14.5px; max-width:56ch; }
+
+  .cards4{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+  @media (max-width:900px){ .cards4{ grid-template-columns:repeat(2,1fr); } }
+  .vert{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:20px; box-shadow:var(--shadow);
+  }
+  .vert .tag{ font-family:'JetBrains Mono'; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); margin-bottom:8px; display:block; }
+  .vert h3{ font-size:16px; font-weight:600; margin-bottom:10px; }
+  .vert .ex{ display:flex; justify-content:space-between; font-size:13px; color:var(--text-muted); padding-top:8px; border-top:1px dashed var(--border); }
+  .vert .ex b{ color:var(--text); font-weight:600; font-family:'JetBrains Mono'; font-variant-numeric:tabular-nums; }
+  .vert-note{ font-size:12.5px; color:var(--text-muted); margin-top:16px; }
+
+  .plans{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  @media (max-width:900px){ .plans{ grid-template-columns:1fr; } }
+  .plan{
+    background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:26px; box-shadow:var(--shadow); display:flex; flex-direction:column;
+  }
+  .plan.destaque{ border-color:var(--accent); position:relative; }
+  .plan.destaque::before{
+    content:"MAIS ESCOLHIDO"; position:absolute; top:-11px; left:24px;
+    background:var(--accent); color:var(--bg); font-family:'JetBrains Mono';
+    font-size:10px; letter-spacing:.05em; padding:3px 9px; border-radius:999px;
+  }
+  .plan h3{ font-size:16px; font-weight:600; margin-bottom:4px; }
+  .plan .preco{ font-family:'JetBrains Mono'; font-size:34px; font-weight:500; margin:10px 0 4px; font-variant-numeric:tabular-nums; }
+  .plan .preco span{ font-size:14px; color:var(--text-muted); font-family:'Work Sans'; }
+  .plan ul{ list-style:none; margin:18px 0 22px; padding:0; display:flex; flex-direction:column; gap:9px; }
+  .plan li{ font-size:13.5px; color:var(--text-muted); display:flex; gap:8px; }
+  .plan li::before{ content:"✓"; color:var(--accent); font-weight:700; flex-shrink:0; }
+  .plan .btn{ margin-top:auto; justify-content:center; }
+
+  .final{
+    background:var(--surface); border:1px solid var(--border); border-radius:20px;
+    padding:56px 40px; text-align:center; box-shadow:var(--shadow);
+  }
+  .final h2{ font-size:clamp(24px,3.4vw,34px); margin-bottom:14px; }
+  .final p{ color:var(--text-muted); max-width:52ch; margin:0 auto 28px; }
+  .final .ctas{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+
+  footer{ padding:40px 0 60px; border-top:1px solid var(--border); }
+  footer .row{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+  footer p{ font-size:13px; color:var(--text-muted); margin:0; }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="row">
+    <span class="wordmark"><span class="dot"></span>AgendaZap</span>
+    <div class="navlinks">
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#para-quem">Pra quem é</a>
+      <a href="#precos">Preços</a>
+    </div>
+    <a class="btn btn-cta btn-sm" href="https://motor-agenda-66n9.vercel.app/barbearia-do-joao" target="_blank" rel="noopener">Ver demonstração</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Pra barbearia, salão, petshop e studio de bairro</span>
+      <h1>Enquanto você corta cabelo, o WhatsApp agenda sozinho.</h1>
+      <p class="lead">Uma IA responde no número que seu cliente já tem salvo, marca o horário certo e cobra o Pix — sem ele baixar app nenhum, sem você largar a tesoura pra digitar.</p>
+      <div class="ctas">
+        <a class="btn btn-cta" href="https://motor-agenda-66n9.vercel.app/barbearia-do-joao" target="_blank" rel="noopener">Ver demonstração ao vivo →</a>
+        <a class="btn btn-ghost" href="#como-funciona">Ver como funciona</a>
+      </div>
+      <p class="microcopy">Sem cartão de crédito. É o sistema rodando de verdade, não um vídeo.</p>
+    </div>
+
+    <div class="phone" role="img" aria-label="Simulação de conversa no WhatsApp: cliente pede horário de corte, a IA da AgendaZap oferece dois horários livres, confirma o agendamento e avisa que vai mandar lembrete.">
+      <div class="screen">
+        <div class="chathead">
+          <span class="avatar">B</span>
+          <div><strong>Barbearia do João</strong><span>via AgendaZap</span></div>
+        </div>
+        <div class="bubble them">oi! vcs tem horário sábado de manhã pra corte?</div>
+        <div class="bubble us">Temos sim! 9h30 ou 10h15 com o João 💈 qual prefere?</div>
+        <div class="bubble them">10h15</div>
+        <div class="bubble us">Fechado ✅ Corte simples, sábado às 10h15 com o João. Mando lembrete 1h antes por aqui mesmo.</div>
+      </div>
+      <p class="caption">conversa real do jeito que a IA responde — sem roteiro decorado</p>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">O problema não é falta de cliente</span>
+    <h2 style="font-size:clamp(22px,3vw,30px); font-weight:700; margin-bottom:36px; max-width:26ch;">É mensagem de WhatsApp que ninguém responde a tempo</h2>
+    <div class="cards3">
+      <div class="pain"><span class="num">01</span><p>Cliente manda mensagem às 22h, você só vê de manhã — e ele já marcou em outro lugar.</p></div>
+      <div class="pain"><span class="num">02</span><p>Agenda de caderno ou grupo de WhatsApp: sempre tem gente marcando em cima de gente.</p></div>
+      <div class="pain"><span class="num">03</span><p>Cliente falta e ninguém lembrou — o horário fica vazio e você não ganhou nada naquele espaço.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="como-funciona">
+  <div class="wrap">
+    <span class="eyebrow">Como funciona</span>
+    <h2 style="font-size:clamp(22px,3vw,30px); font-weight:700; margin-bottom:8px;">Você configura uma vez. Ele atende todo dia.</h2>
+    <div class="steps" style="margin-top:32px;">
+      <div class="step"><div class="n">01</div><div><h3>Cadastra serviços e horários</h3><p>Nome, duração e preço de cada serviço; horário de cada profissional. Leva uns 10 minutos.</p></div></div>
+      <div class="step"><div class="n">02</div><div><h3>Conecta o WhatsApp que você já usa</h3><p>Sem trocar de número, sem seu cliente precisar salvar contato novo.</p></div></div>
+      <div class="step"><div class="n">03</div><div><h3>Cliente marca sozinho</h3><p>Pelo WhatsApp com a IA, ou por um link próprio do seu negócio — sem app pra instalar.</p></div></div>
+      <div class="step"><div class="n">04</div><div><h3>Você só aparece pra trabalhar</h3><p>Lembrete automático antes do horário, e aviso se o cliente confirmar, cancelar ou remarcar.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="para-quem">
+  <div class="wrap">
+    <span class="eyebrow">Pra quem é</span>
+    <h2 style="font-size:clamp(22px,3vw,30px); font-weight:700; margin-bottom:32px;">Um motor só, o seu negócio do seu jeito</h2>
+    <div class="cards4">
+      <div class="vert"><span class="tag">Exemplo</span><h3>Barbearia</h3><div class="ex"><span>Corte simples</span><b>R$ 40</b></div></div>
+      <div class="vert"><span class="tag">Exemplo</span><h3>Salão de beleza</h3><div class="ex"><span>Escova + prancha</span><b>R$ 55</b></div></div>
+      <div class="vert"><span class="tag">Exemplo</span><h3>Petshop</h3><div class="ex"><span>Banho + tosa</span><b>R$ 70</b></div></div>
+      <div class="vert"><span class="tag">Exemplo</span><h3>Studio de unha/cílios</h3><div class="ex"><span>Alongamento</span><b>R$ 90</b></div></div>
+    </div>
+    <p class="vert-note">Preços de exemplo, pra mostrar como fica — cada negócio define os seus próprios serviços e valores.</p>
+  </div>
+</section>
+
+<section id="precos">
+  <div class="wrap">
+    <span class="eyebrow">Preços</span>
+    <h2 style="font-size:clamp(22px,3vw,30px); font-weight:700; margin-bottom:8px;">Preço de quem está começando, não de quem já é grande</h2>
+    <p style="color:var(--text-muted); margin-bottom:32px; max-width:56ch;">Os primeiros negócios do bairro ganham 30 dias grátis pra testar de verdade antes de decidir.</p>
+    <div class="plans">
+      <div class="plan">
+        <h3>Entrada</h3>
+        <div class="preco">R$79<span>/mês</span></div>
+        <ul>
+          <li>1–2 profissionais</li>
+          <li>Agenda online própria</li>
+          <li>Lembrete automático por WhatsApp</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://motor-agenda-66n9.vercel.app/barbearia-do-joao" target="_blank" rel="noopener">Testar grátis</a>
+      </div>
+      <div class="plan destaque">
+        <h3>IA completa</h3>
+        <div class="preco">R$129<span>/mês</span></div>
+        <ul>
+          <li>Até 5 profissionais</li>
+          <li>IA respondendo e agendando no WhatsApp</li>
+          <li>Cobrança de sinal via Pix</li>
+        </ul>
+        <a class="btn btn-cta" href="https://motor-agenda-66n9.vercel.app/barbearia-do-joao" target="_blank" rel="noopener">Testar grátis</a>
+      </div>
+      <div class="plan">
+        <h3>Rede</h3>
+        <div class="preco">R$199<span>/mês</span></div>
+        <ul>
+          <li>Múltiplas unidades</li>
+          <li>Tudo do plano IA completa</li>
+          <li>Suporte prioritário</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://motor-agenda-66n9.vercel.app/barbearia-do-joao" target="_blank" rel="noopener">Testar grátis</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="final">
+      <h2>Pare de perder cliente que manda mensagem fora do horário</h2>
+      <p>Veja funcionando de verdade agora — é o sistema rodando, com dados de exemplo, não uma demonstração gravada.</p>
+      <div class="ctas">
+        <a class="btn btn-cta" href="https://motor-agenda-66n9.vercel.app/barbearia-do-joao" target="_blank" rel="noopener">Ver demonstração do cliente</a>
+        <a class="btn btn-ghost" href="https://motor-agenda.vercel.app" target="_blank" rel="noopener">Ver painel do dono</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap row">
+    <span class="wordmark" style="font-size:16px;"><span class="dot"></span>AgendaZap</span>
+    <p>Agenda com IA no WhatsApp para negócios de bairro.</p>
+  </div>
+</footer>
+
+</body>
+</html>
